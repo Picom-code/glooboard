@@ -3,6 +3,7 @@ Flourishing AI Benchmark Dashboard
 Interactive analysis of Gloo's FAI multi-turn benchmark data.
 """
 
+import os
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -805,8 +806,7 @@ elif page == "💡 Improvement Recommendations":
         st.success(f"{selected_model} is already the top-performing model!")
 
     # Check for GPU analysis results
-    gpu_report_path = f"/home/ubuntu/fai-dashboard/cache/gpu_analysis_{selected_model.replace(' ', '_')}.json"
-    import os
+    gpu_report_path = os.path.join(os.path.dirname(__file__), "cache", f"gpu_analysis_{selected_model.replace(' ', '_')}.json")
     if os.path.exists(gpu_report_path):
         st.markdown("---")
         st.subheader("GPU-Powered Deep Analysis (LLM-Generated)")

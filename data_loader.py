@@ -9,8 +9,12 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 
-DATA_DIR = Path("/home/ubuntu/FAI MT Baylor Shared Folder/FAI MT Baylor Shared Folder")
-CACHE_DIR = Path("/home/ubuntu/fai-dashboard/cache")
+_PROJECT_DIR = Path(__file__).parent
+DATA_DIR = Path(os.environ.get(
+    "FAI_DATA_DIR",
+    "/home/ubuntu/FAI MT Baylor Shared Folder/FAI MT Baylor Shared Folder"
+))
+CACHE_DIR = _PROJECT_DIR / "cache"
 
 # ---------------------------------------------------------------------------
 # Rubric question mapping (from White Paper Table 7)
@@ -185,11 +189,21 @@ def load_raw_data(force_reload: bool = False) -> pd.DataFrame:
 def load_cached_data() -> pd.DataFrame:
     """Load the lightweight cached Parquet (no conversation/evaluation text)."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Try hash-based cache first (works when CSVs are present)
     cache_key = _cache_hash()
     cache_path = CACHE_DIR / f"fai_data_{cache_key}.parquet"
     if cache_path.exists():
         return pd.read_parquet(cache_path)
-    # Fall back to full load, which will create the cache
+
+    # Fallback: find ANY parquet file in cache dir (works on deployed environments
+    # where the original CSVs are not present but the cache was committed to git)
+    parquet_files = sorted(CACHE_DIR.glob("fai_data_*.parquet"))
+    if parquet_files:
+        print(f"CSV source not available; loading from cached file: {parquet_files[-1]}")
+        return pd.read_parquet(parquet_files[-1])
+
+    # Last resort: try full load from CSVs
     df = load_raw_data()
     return df.drop(columns=["conversation", "evaluation"], errors="ignore")
 
@@ -200,6 +214,12 @@ def load_conversations_for_model(model_name: str) -> pd.DataFrame:
     if not fname:
         raise ValueError(f"Unknown model: {model_name}")
     fpath = DATA_DIR / fname
+    if not fpath.exists():
+        raise FileNotFoundError(
+            f"CSV file not available: {fpath}. "
+            "The Conversation Explorer requires the original CSV files, "
+            "which are not included in deployed environments."
+        )
     return pd.read_csv(fpath)
 
 
